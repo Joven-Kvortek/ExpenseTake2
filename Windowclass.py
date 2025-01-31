@@ -1,5 +1,5 @@
 from PyQt6.QtCore import pyqtSignal, Qt
-from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QDialog, QMainWindow, QLineEdit, QLabel, \
+from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QDialog, QMainWindow, QLineEdit, QLabel, QListWidget, \
     QDialogButtonBox, QVBoxLayout, QHBoxLayout, QCheckBox
 from PyQt6.QtGui import QIcon, QFont
 import sys
@@ -15,6 +15,8 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon("windowicon.jpg"))
         self.setGeometry(50, 50, 1000, 500)
 
+        self.expenses = {}
+
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
@@ -26,6 +28,9 @@ class MainWindow(QMainWindow):
         )
         layout.addWidget(self.expenses_total_label)
         layout.setAlignment(self.expenses_total_label, Qt.AlignmentFlag.AlignCenter)
+
+        self.expenses_name = QListWidget(self)
+        layout.addWidget(self.expenses_name)
 
 
         self.add_expense_button(layout)
@@ -58,21 +63,34 @@ class MainWindow(QMainWindow):
         self.w = AddExpenseWindow()
         # noinspection PyUnresolvedReferences
         self.w.expense_added.connect(self.update_expenses_total)
+        self.w.expense_added_name.connect(self.update_expenses_total_name)
         self.w.show()
 
     def remove_expense_clicked(self):
         self.d = RemoveExpenseWindow()
+        self.d.expense_removed.connect(self.remove_expenses_total)
         self.d.show()
 
     def update_expenses_total(self, amount):
         self.expenses_total = amount + self.expenses_total
         self.expenses_total_label.setText(f"Total Expenses: ${self.expenses_total}")
 
+    def remove_expenses_total(self, amount):
+        self.expenses_total = self.expenses_total - amount
+        self.expenses_total_label.setText(f"Total Expenses: ${self.expenses_total}")
 
+    def update_expenses_total_name(self, amount_name):
+        self.expenses_name.addItem(amount_name)
+        print(self.expenses)
+
+    def update_dict(self, amount, amount_name):
+        self.expenses[amount_name] = amount, amount_name
+        print(self.expenses)
 
 
 class AddExpenseWindow(QWidget):
     expense_added = pyqtSignal(float)
+    expense_added_name = pyqtSignal(str)
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Add Expense")
@@ -103,11 +121,16 @@ class AddExpenseWindow(QWidget):
     def confirm_clicked(self):
         self.confirmation_dialog_amount()
         try:
-            amount_str = self.expense_cost.text()
-            print(amount_str)
             amount = float(self.expense_cost.text())
             # noinspection PyUnresolvedReferences
             self.expense_added.emit(amount)
+
+        except ValueError:
+            pass
+
+        try:
+            amount_name = str(self.expense_name.text())
+            self.expense_added_name.emit(amount_name)
         except ValueError:
             pass
 
@@ -151,21 +174,60 @@ class RemoveExpenseWindow(QWidget):
         super().__init__(parent)
         self.setWindowTitle("Remove Expense")
         self.setGeometry(50, 50, 500, 500)
+        layout = QVBoxLayout()
 
-        self.confirm = QPushButton("Confirm", self)
-        self.checkbox()
+        self.amount_to_remove = QLineEdit(self)
+        self.amount_to_remove.setPlaceholderText("Enter amount to remove")
+        layout.addWidget(self.amount_to_remove)
+
+        confirm_button = QPushButton("Confirm", self)
+        confirm_button.setGeometry(150, 400, 100, 25)
+        confirm_button.setStyleSheet("background-color: black; color: white;")
+        confirm_button.setFont(QFont("Times New Roman", 8))
+        confirm_button.clicked.connect(self.confirm_clicked)
+        layout.addWidget(confirm_button)
+
+        self.setLayout(layout)
+
+    def confirm_clicked(self):
+        self.confirmation_message()
+        try:
+            amount = float(self.amount_to_remove.text())
+            self.expense_removed.emit(amount)
+        except ValueError:
+            pass
+
+    def confirmation_message(self):
+        msg = QDialog(self)
+        msg.setWindowTitle("Confirmation")
+        msg.setFont(QFont("Times New Roman", 12))
+        layout = QVBoxLayout()
+        message = QLabel("Do you want to save this expense?", msg)
+        layout.addWidget(message)
+
+        msg_buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel, msg)
+        # noinspection PyUnresolvedReferences
+        msg_buttons.accepted.connect(msg.accept)
+        # noinspection PyUnresolvedReferences
+        msg_buttons.rejected.connect(msg.reject)
+
+        layout.addWidget(msg_buttons)
+        msg.setLayout(layout)
+
+        if msg.exec() == QDialog.DialogCode.Accepted:
+            self.close()
+        else:
+            self.amount_to_remove.clear()
+
+    def closeEvent(self, event):
+        self.close()
 
 
-    def checkbox(self):
-        hbox = QHBoxLayout()
-        self.check1 = QCheckBox("Python")
-        hbox.addWidget(self.check1)
 
-        vbox = QVBoxLayout()
-        self.label = QLabel("Select Expenses to Remove")
-        vbox.addWidget(self.label)
-        vbox.addLayout(hbox)
-        self.setLayout(vbox)
+
+
+
 
 
 
