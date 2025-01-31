@@ -1,12 +1,9 @@
-from mimetypes import inited
-
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QDialog, QMainWindow, QLineEdit, QLabel, \
-    QDialogButtonBox, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout
+    QDialogButtonBox, QVBoxLayout, QHBoxLayout, QCheckBox
 from PyQt6.QtGui import QIcon, QFont
 import sys
 
-git init
 
 
 
@@ -55,11 +52,17 @@ class MainWindow(QMainWindow):
         remove_expense_button.setMaximumSize(300, 150)
         layout.addWidget(remove_expense_button)
 
+        remove_expense_button.clicked.connect(self.remove_expense_clicked)
+
     def add_expense_clicked(self):
         self.w = AddExpenseWindow()
         # noinspection PyUnresolvedReferences
         self.w.expense_added.connect(self.update_expenses_total)
         self.w.show()
+
+    def remove_expense_clicked(self):
+        self.d = RemoveExpenseWindow()
+        self.d.show()
 
     def update_expenses_total(self, amount):
         self.expenses_total = amount + self.expenses_total
@@ -85,13 +88,7 @@ class AddExpenseWindow(QWidget):
         # noinspection PyUnresolvedReferences
         layout.addWidget(self.expense_cost)
 
-        self.label1 = QLabel("Expense cost added successfully!", self)
-        layout.addWidget(self.label1)
-        self.label1.hide()
 
-        self.label2 = QLabel("Expense name added successfully!", self)
-        layout.addWidget(self.label2)
-        self.label2.hide()
 
         confirm_button = QPushButton("Confirm", self)
         confirm_button.setGeometry(150, 400, 100, 25)
@@ -146,6 +143,32 @@ class AddExpenseWindow(QWidget):
 
     def closeEvent(self, event):
         self.close()
+
+
+class RemoveExpenseWindow(QWidget):
+    expense_removed = pyqtSignal(float)
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Remove Expense")
+        self.setGeometry(50, 50, 500, 500)
+
+        self.confirm = QPushButton("Confirm", self)
+        self.checkbox()
+
+
+    def checkbox(self):
+        hbox = QHBoxLayout()
+        self.check1 = QCheckBox("Python")
+        hbox.addWidget(self.check1)
+
+        vbox = QVBoxLayout()
+        self.label = QLabel("Select Expenses to Remove")
+        vbox.addWidget(self.label)
+        vbox.addLayout(hbox)
+        self.setLayout(vbox)
+
+
+
 
 
 
