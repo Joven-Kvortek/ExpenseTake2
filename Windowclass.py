@@ -31,8 +31,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.expenses_total_label)
         layout.setAlignment(self.expenses_total_label, Qt.AlignmentFlag.AlignCenter)
 
-        self.expenses_name = QListWidget(self)
-        layout.addWidget(self.expenses_name)
+        #self.expenses_name = QListWidget(self)
+        #layout.addWidget(self.expenses_name)
 
 
         self.add_expense_button(layout)
@@ -73,13 +73,17 @@ class MainWindow(QMainWindow):
         self.d.show()
 
     def update_expenses_total(self, expense_amount, expense_name):
-        self.expenses_total = expense_amount + self.expenses_total
-        self.expenses_total_label.setText(f"Total Expenses: ${self.expenses_total}")
-        if expense_name in self.expenses:
-            print("expense already exists - main")
+        if expense_name and expense_amount:
+            print("expense added - main")
+            self.expenses_total = expense_amount + self.expenses_total
+            self.expenses_total_label.setText(f"Total Expenses: ${self.expenses_total}")
+            if expense_name in self.expenses:
+                print("expense already exists")
+            else:
+                self.expenses[expense_name] = expense_amount
         else:
-            self.expenses[expense_name] = expense_amount
-            print(self.expenses)
+            print("expense not added - main")
+
 
 
     def remove_expenses_total(self, expense_removed):
@@ -153,8 +157,6 @@ class AddExpenseWindow(QWidget):
         if self.expense_cost.text() == "":
             warning_message = QLabel("Please enter an expense cost!", msg)
             layout.addWidget(warning_message)
-            self.expense_cost.clear()
-            self.expense_name.clear()
 
         if msg.exec() == QDialog.DialogCode.Accepted:
             self.close()
@@ -179,9 +181,10 @@ class RemoveExpenseWindow(QWidget):
 
         self.box = QComboBox()
         self.box.addItems(list(self.expenses.keys()))
-        # noinspection PyUnresolvedReferences
-        #box.currentIndexChanged.connect(lambda: self.confirm_clicked(box.currentText()))
         layout.addWidget(self.box)
+
+
+
 
         confirm_button = QPushButton("Confirm", self)
         confirm_button.setGeometry(150, 400, 100, 25)
@@ -197,7 +200,7 @@ class RemoveExpenseWindow(QWidget):
 
 
     def confirm_clicked(self):
-
+        self.confirmation_dialog()
         try:
             selected_expense = self.box.currentText()
             selected_value = self.expenses.get(selected_expense)
@@ -209,6 +212,30 @@ class RemoveExpenseWindow(QWidget):
 
         except ValueError:
             pass
+
+    def confirmation_dialog(self):
+        msg = QDialog(self)
+        msg.setWindowTitle("Confirmation")
+        msg.setFont(QFont("Times New Roman", 12))
+        layout = QVBoxLayout()
+        message = QLabel("Do you want to remove this expense?", msg)
+        warning_message = QLabel("This action cannot be undone!", msg)
+        layout.addWidget(message)
+        layout.addWidget(warning_message)
+
+        msg_buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No, msg)
+        layout.addWidget(msg_buttons)
+        msg_buttons.accepted.connect(msg.accept)
+        msg_buttons.rejected.connect(msg.reject)
+        msg.setLayout(layout)
+        if self.box.currentText() == "":
+            warning_message = QLabel("No expense selected!", msg)
+            warning_message.setStyleSheet(
+                "font-weight: bold;")
+            layout.addWidget(warning_message)
+
+        if msg.exec() == QDialog.DialogCode.Accepted:
+            self.close()
 
 
 
