@@ -31,9 +31,6 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.expenses_total_label)
         layout.setAlignment(self.expenses_total_label, Qt.AlignmentFlag.AlignCenter)
 
-        #self.expenses_name = QListWidget(self)
-        #layout.addWidget(self.expenses_name)
-
 
         self.add_expense_button(layout)
 
@@ -61,7 +58,7 @@ class MainWindow(QMainWindow):
         remove_expense_button.clicked.connect(self.remove_expense_clicked)
 
     def add_expense_clicked(self):
-        self.w = AddExpenseWindow()
+        self.w = AddExpenseWindow(self.expenses)
         # noinspection PyUnresolvedReferences
         self.w.expense_added.connect(self.update_expenses_total)
         self.w.show()
@@ -73,21 +70,19 @@ class MainWindow(QMainWindow):
         self.d.show()
 
     def update_expenses_total(self, expense_amount, expense_name):
+        if expense_name in self.expenses:
+            print("Expense already exists")
+            return
         if expense_name and expense_amount:
-            print("expense added - main")
-            self.expenses_total = expense_amount + self.expenses_total
+            self.expenses_total = round(expense_amount + self.expenses_total, 2)
             self.expenses_total_label.setText(f"Total Expenses: ${self.expenses_total}")
-            if expense_name in self.expenses:
-                print("expense already exists")
-            else:
-                self.expenses[expense_name] = expense_amount
-        else:
-            print("expense not added - main")
+            self.expenses[expense_name] = expense_amount
+
 
 
 
     def remove_expenses_total(self, expense_removed):
-        self.expenses_total = self.expenses_total - expense_removed
+        self.expenses_total = round(self.expenses_total - expense_removed, 2)
         self.expenses_total_label.setText(f"Total Expenses: ${self.expenses_total}")
 
 
@@ -95,12 +90,12 @@ class MainWindow(QMainWindow):
 
 class AddExpenseWindow(QWidget):
     expense_added = pyqtSignal(float,str)
-    def __init__(self, parent=None):
+    def __init__(self, dict, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Add Expense")
         self.setGeometry(50, 50, 500, 500)
         layout = QVBoxLayout()
-
+        self.expenses = dict
         self.expense_name = QLineEdit(self)
         self.expense_name.setPlaceholderText("Enter expense name")
         layout.addWidget(self.expense_name)
@@ -127,8 +122,11 @@ class AddExpenseWindow(QWidget):
         try:
             expense_amount = float(self.expense_cost.text())
             expense_name = str(self.expense_name.text())
-            # noinspection PyUnresolvedReferences
-            self.expense_added.emit(expense_amount, expense_name)
+            if expense_name in self.expenses:
+                return
+            else:
+                # noinspection PyUnresolvedReferences
+                self.expense_added.emit(expense_amount, expense_name)
 
         except ValueError:
             pass
@@ -157,6 +155,9 @@ class AddExpenseWindow(QWidget):
         if self.expense_cost.text() == "":
             warning_message = QLabel("Please enter an expense cost!", msg)
             layout.addWidget(warning_message)
+        if self.expense_name.text() in self.expenses:
+            warning_message = QLabel("Expense already exists!", msg)
+            layout.addWidget(warning_message)
 
         if msg.exec() == QDialog.DialogCode.Accepted:
             self.close()
@@ -180,6 +181,8 @@ class RemoveExpenseWindow(QWidget):
         layout = QVBoxLayout()
 
         self.box = QComboBox()
+        self.box.setPlaceholderText("Select expense to remove")
+        self.box.addItem("All Expenses")
         self.box.addItems(list(self.expenses.keys()))
         layout.addWidget(self.box)
 
@@ -208,7 +211,11 @@ class RemoveExpenseWindow(QWidget):
                 self.expense_removed.emit(selected_value)
                 self.expenses.pop(selected_expense)
                 self.box.removeItem(self.box.currentIndex())
-            self.close()
+            if selected_expense == "All Expenses":
+                self.expense_removed.emit(sum(self.expenses.values()))
+                self.expenses.clear()
+                self.box.clear()
+
 
         except ValueError:
             pass
@@ -218,10 +225,6 @@ class RemoveExpenseWindow(QWidget):
         msg.setWindowTitle("Confirmation")
         msg.setFont(QFont("Times New Roman", 12))
         layout = QVBoxLayout()
-        message = QLabel("Do you want to remove this expense?", msg)
-        warning_message = QLabel("This action cannot be undone!", msg)
-        layout.addWidget(message)
-        layout.addWidget(warning_message)
 
         msg_buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No, msg)
         layout.addWidget(msg_buttons)
@@ -233,9 +236,22 @@ class RemoveExpenseWindow(QWidget):
             warning_message.setStyleSheet(
                 "font-weight: bold;")
             layout.addWidget(warning_message)
+        if self.box.currentText() == "All Expenses":
+            warning_message = QLabel("Remove all expenses?", msg)
+            layout.addWidget(warning_message)
+            warning_message_2 = QLabel("This action cannot be undone!", msg)
+            layout.addWidget(warning_message_2)
+        if self.box.currentText() != "All Expenses" and self.box.currentText() != "":
+            warning_message = QLabel(f"Remove expense: {self.box.currentText()}?", msg)
+            layout.addWidget(warning_message)
+            warning_message_2 = QLabel("This action cannot be undone!", msg)
+            layout.addWidget(warning_message_2)
 
         if msg.exec() == QDialog.DialogCode.Accepted:
             self.close()
+        else:
+            self.box.clear()
+
 
 
 
