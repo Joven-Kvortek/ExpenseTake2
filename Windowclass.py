@@ -1,9 +1,10 @@
-from os import remove
+
 
 from PyQt6.QtCore import pyqtSignal, Qt
-from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QDialog, QMainWindow, QLineEdit, QLabel, QListWidget, \
-    QDialogButtonBox, QVBoxLayout, QHBoxLayout, QCheckBox, QComboBox
+from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QDialog, QMainWindow, QLineEdit, QLabel, \
+    QDialogButtonBox, QVBoxLayout, QHBoxLayout, QComboBox
 from PyQt6.QtGui import QIcon, QFont
+from HelpWindow import HelpWindow
 import sys
 
 
@@ -18,10 +19,13 @@ class MainWindow(QMainWindow):
         self.setGeometry(50, 50, 1000, 500)
 
         self.expenses = {}
+        self.action_history = []
 
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addStretch()
 
         self.expenses_total = 0
         self.expenses_total_label = QLabel(f"Total Expenses: ${self.expenses_total}", self)
@@ -36,7 +40,12 @@ class MainWindow(QMainWindow):
 
         self.remove_expense_button(layout)
 
+        self.help_button(bottom_layout)
+
+        self.undo_button(bottom_layout)
+
         self.setLayout(layout)
+        layout.addLayout(bottom_layout)
 
 
     def add_expense_button(self, layout):
@@ -44,6 +53,7 @@ class MainWindow(QMainWindow):
         add_expense_button.setStyleSheet("background-color: black; color: white;")
         add_expense_button.setFont(QFont("Times New Roman", 12))
         add_expense_button.setMaximumSize(300,150)
+        add_expense_button.setShortcut("Ctrl+A")
         layout.addWidget(add_expense_button)
         # noinspection PyUnresolvedReferences
         add_expense_button.clicked.connect(self.add_expense_clicked)
@@ -53,9 +63,28 @@ class MainWindow(QMainWindow):
         remove_expense_button.setStyleSheet("background-color: black; color: white;")
         remove_expense_button.setFont(QFont("Times New Roman", 9))
         remove_expense_button.setMaximumSize(300, 150)
+        remove_expense_button.setShortcut("Ctrl+R")
         layout.addWidget(remove_expense_button)
         # noinspection PyUnresolvedReferences
         remove_expense_button.clicked.connect(self.remove_expense_clicked)
+
+    def help_button(self, bottom_layout):
+        help_button = QPushButton("Help", self)
+        help_button.setStyleSheet("background-color: blue; color: white;")
+        help_button.setFont(QFont("Times New Roman", 9))
+        help_button.setShortcut("Ctrl+H")
+        bottom_layout.addWidget(help_button)
+        # noinspection PyUnresolvedReferences
+        help_button.clicked.connect(self.help_clicked)
+
+    def undo_button(self, bottom_layout):
+        undo_button = QPushButton("Undo", self)
+        undo_button.setStyleSheet("background-color: blue; color: white;")
+        undo_button.setFont(QFont("Times New Roman", 9))
+        undo_button.setShortcut("Ctrl+Z")
+        undo_button.clicked.connect(self.undo)
+        bottom_layout.addWidget(undo_button)
+
 
     def add_expense_clicked(self):
         self.w = AddExpenseWindow(self.expenses)
@@ -69,7 +98,11 @@ class MainWindow(QMainWindow):
         self.d.expense_removed.connect(self.remove_expenses_total)
         self.d.show()
 
-    def update_expenses_total(self, expense_amount, expense_name):
+    def help_clicked(self):
+        self.h = HelpWindow()
+        self.h.show()
+
+    def update_expenses_total(self, expense_amount: float, expense_name: str):
         if expense_name in self.expenses:
             print("Expense already exists")
             return
@@ -78,12 +111,48 @@ class MainWindow(QMainWindow):
             self.expenses_total_label.setText(f"Total Expenses: ${self.expenses_total}")
             self.expenses[expense_name] = expense_amount
 
+            self.action_history.insert(0, ("add", expense_name, expense_amount))
+            print(self.expenses)
+            print(self.action_history)
 
 
-
-    def remove_expenses_total(self, expense_removed):
-        self.expenses_total = round(self.expenses_total - expense_removed, 2)
+    def remove_expenses_total(self, expense_amount: float, expense_name: str):
+        self.expenses_total = round(self.expenses_total - expense_amount, 2)
         self.expenses_total_label.setText(f"Total Expenses: ${self.expenses_total}")
+
+        self.action_history.insert(0, ("remove", expense_name, expense_amount))
+        print(self.expenses)
+        print(self.action_history)
+
+
+
+    def undo(self):
+        print(self.action_history)
+        if len(self.action_history) == 0:
+            print("nothing to undo")
+            return
+        last_action = self.action_history.pop(0)
+        if last_action[0] == "add":
+            print("undo add")
+            expense_name = last_action[1]
+            expense_amount = last_action[2]
+            self.expenses.pop(expense_name)
+            self.expenses_total = round(self.expenses_total - expense_amount, 2)
+            self.expenses_total_label.setText(f"Total Expenses: ${self.expenses_total}")
+            print(self.expenses)
+
+        if last_action[0] == "remove":
+            print("undo remove")
+            expense_name = last_action[1]
+            expense_amount = last_action[2]
+            self.expenses_total = round(self.expenses_total + expense_amount, 2)
+            self.expenses_total_label.setText(f"Total Expenses: ${self.expenses_total}")
+            self.expenses[expense_name] = expense_amount
+            print(self.expenses)
+
+
+
+
 
 
 
@@ -170,7 +239,7 @@ class AddExpenseWindow(QWidget):
 
 
 class RemoveExpenseWindow(QWidget):
-    expense_removed = pyqtSignal(float)
+    expense_removed = pyqtSignal(float, str)
     def __init__(self, dict, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Remove Expense")
@@ -203,24 +272,25 @@ class RemoveExpenseWindow(QWidget):
 
 
     def confirm_clicked(self):
-        self.confirmation_dialog()
+        self.confirmation_dialog(self)
         try:
             selected_expense = self.box.currentText()
-            selected_value = self.expenses.get(selected_expense)
-            if selected_value is not None:
-                self.expense_removed.emit(selected_value)
-                self.expenses.pop(selected_expense)
-                self.box.removeItem(self.box.currentIndex())
             if selected_expense == "All Expenses":
-                self.expense_removed.emit(sum(self.expenses.values()))
+                self.expense_removed.emit(sum(self.expenses.values()), "All Expenses")
+                print(sum(self.expenses.values(), 0))
                 self.expenses.clear()
                 self.box.clear()
+            selected_value = self.expenses.get(selected_expense)
+            if selected_value is not None:
+                self.expense_removed.emit(selected_value, selected_expense)
+                self.expenses.pop(selected_expense)
+                self.box.removeItem(self.box.currentIndex())
 
 
         except ValueError:
             pass
 
-    def confirmation_dialog(self):
+    def confirmation_dialog(self, selected_expense):
         msg = QDialog(self)
         msg.setWindowTitle("Confirmation")
         msg.setFont(QFont("Times New Roman", 12))
@@ -228,20 +298,22 @@ class RemoveExpenseWindow(QWidget):
 
         msg_buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No, msg)
         layout.addWidget(msg_buttons)
+        # noinspection PyUnresolvedReferences
         msg_buttons.accepted.connect(msg.accept)
+        # noinspection PyUnresolvedReferences
         msg_buttons.rejected.connect(msg.reject)
         msg.setLayout(layout)
-        if self.box.currentText() == "":
+        if selected_expense == "":
             warning_message = QLabel("No expense selected!", msg)
             warning_message.setStyleSheet(
                 "font-weight: bold;")
             layout.addWidget(warning_message)
-        if self.box.currentText() == "All Expenses":
+        if selected_expense == "All Expenses":
             warning_message = QLabel("Remove all expenses?", msg)
             layout.addWidget(warning_message)
             warning_message_2 = QLabel("This action cannot be undone!", msg)
             layout.addWidget(warning_message_2)
-        if self.box.currentText() != "All Expenses" and self.box.currentText() != "":
+        if selected_expense != "All Expenses" and selected_expense != "":
             warning_message = QLabel(f"Remove expense: {self.box.currentText()}?", msg)
             layout.addWidget(warning_message)
             warning_message_2 = QLabel("This action cannot be undone!", msg)
