@@ -272,23 +272,25 @@ class RemoveExpenseWindow(QWidget):
 
 
     def confirm_clicked(self):
-        self.confirmation_dialog(self)
-        try:
-            selected_expense = self.box.currentText()
-            if selected_expense == "All Expenses":
-                self.expense_removed.emit(sum(self.expenses.values()), "All Expenses")
-                print(sum(self.expenses.values(), 0))
-                self.expenses.clear()
-                self.box.clear()
-            selected_value = self.expenses.get(selected_expense)
-            if selected_value is not None:
-                self.expense_removed.emit(selected_value, selected_expense)
-                self.expenses.pop(selected_expense)
-                self.box.removeItem(self.box.currentIndex())
+        if self.confirmation_dialog(self):
+            try:
+                selected_expense = self.box.currentText()
+                if selected_expense == "All Expenses":
+                    self.expense_removed.emit(sum(self.expenses.values()), "All Expenses")
+                    print(sum(self.expenses.values(), 0))
+                    self.expenses.clear()
+                    self.box.clear()
+                selected_value = self.expenses.get(selected_expense)
+                if selected_value is not None:
+                    self.expense_removed.emit(selected_value, selected_expense)
+                    self.expenses.pop(selected_expense)
+                    self.box.removeItem(self.box.currentIndex())
+
+                self.close()
 
 
-        except ValueError:
-            pass
+            except ValueError:
+                pass
 
     def confirmation_dialog(self, selected_expense):
         msg = QDialog(self)
@@ -303,26 +305,23 @@ class RemoveExpenseWindow(QWidget):
         # noinspection PyUnresolvedReferences
         msg_buttons.rejected.connect(msg.reject)
         msg.setLayout(layout)
-        if selected_expense == "":
+        print(selected_expense)
+        if self.box.currentText() == "":
+            print("No expense selected!")
             warning_message = QLabel("No expense selected!", msg)
-            warning_message.setStyleSheet(
-                "font-weight: bold;")
             layout.addWidget(warning_message)
-        if selected_expense == "All Expenses":
-            warning_message = QLabel("Remove all expenses?", msg)
+        elif self.box.currentText() == "All Expenses":
+            warning_message = QLabel("Are you sure you want to remove all expenses?", msg)
+            warning_message.setWordWrap(True)
             layout.addWidget(warning_message)
-            warning_message_2 = QLabel("This action cannot be undone!", msg)
-            layout.addWidget(warning_message_2)
-        if selected_expense != "All Expenses" and selected_expense != "":
+        elif self.box.currentText() != "All Expenses" and selected_expense != "":
             warning_message = QLabel(f"Remove expense: {self.box.currentText()}?", msg)
             layout.addWidget(warning_message)
-            warning_message_2 = QLabel("This action cannot be undone!", msg)
-            layout.addWidget(warning_message_2)
 
-        if msg.exec() == QDialog.DialogCode.Accepted:
-            self.close()
-        else:
-            self.box.clear()
+            return msg.exec() == QDialog.DialogCode.Accepted
+
+
+
 
 
 
