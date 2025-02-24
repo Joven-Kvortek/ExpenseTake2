@@ -13,6 +13,7 @@ import sys
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+
         self.setWindowTitle("Expense Tracker")
         self.setWindowIcon(QIcon("windowicon.jpg"))
         self.setGeometry(50, 50, 1000, 500)
@@ -54,6 +55,7 @@ class MainWindow(QMainWindow):
 
         self.add_expense_button(layout)
         self.remove_expense_button(layout)
+
 
         layout.addLayout(bottom_layout)
 

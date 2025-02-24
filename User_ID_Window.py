@@ -1,7 +1,6 @@
 
 from PyQt6.QtGui import QFont
-
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QDialog, QDialogButtonBox
 import requests
 
 class login(QWidget):
@@ -17,20 +16,70 @@ class login(QWidget):
         self.login_button()
 
     def username_line(self):
-        username = QLineEdit(self)
-        username.setPlaceholderText("Enter username")
-        self.layout.addWidget(username)
+        self.username = QLineEdit(self)
+        self.username.setPlaceholderText("Enter username")
+        self.layout.addWidget(self.username)
 
     def password_line(self):
-        password = QLineEdit(self)
-        password.setPlaceholderText("Enter password")
-        self.layout.addWidget(password)
+        self.password = QLineEdit(self)
+        self.password.setPlaceholderText("Enter password")
+        self.layout.addWidget(self.password)
 
     def login_button(self):
         login_button = QPushButton("Login", self)
         login_button.setStyleSheet("background-color: black; color: white;")
         login_button.setFont(QFont("Times New Roman", 8))
+        login_button.clicked.connect(self.login_clicked)
         self.layout.addWidget(login_button)
+
+    def send_login_data(self, username, password):
+        url = "http://127.0.0.1:5000/login/"
+        data = {"username": username, "password": password}
+        response = requests.post(url, json=data)
+        return response.json()
+
+    def login_clicked(self):
+        url = "http://127.0.0.1:5000/login/"
+        data = {"username": self.username.text(), "password": self.password.text()}
+        response = requests.post(url, json=data)
+        print(data)
+        if response.json().get('wrong_password'):
+            self.wrong_password()
+        elif response.json().get('exists'):
+            self.login_successful()
+        else:
+            self.login_failed()
+
+    def login_successful(self):
+        msg = QDialog(self)
+        msg.setWindowTitle("Login Successful")
+        success = QLabel("Login Successful!", msg)
+        msg.setFont(QFont("Times New Roman", 12))
+        success.show()
+        msg.exec()
+        self.close()
+
+    def wrong_password(self):
+        msg = QDialog(self)
+        msg.setWindowTitle("Wrong Password")
+        fail = QLabel("Wrong Password!", msg)
+        msg.setFont(QFont("Times New Roman", 12))
+        fail.show()
+        msg.exec()
+        self.password.clear()
+
+    def login_failed(self):
+        msg = QDialog(self)
+        msg.setWindowTitle("Login Failed")
+        fail = QLabel("Login Failed!", msg)
+        msg.setFont(QFont("Times New Roman", 12))
+        fail.show()
+        msg.exec()
+        self.username.clear()
+        self.password.clear()
+
+
+
 
 class register(QWidget):
     def __init__(self, parent=None):
@@ -60,15 +109,64 @@ class register(QWidget):
         self.layout.addWidget(register_button)
 
     def register_clicked(self):
-        username = self.username.text()
-        password = self.password.text()
-        self.send_registered_data(username, password)
+        self.confirm_dialog()
 
     def send_registered_data(self, username, password):
-        url = "http://127.0.0.1:5000/register"
+        url = "http://127.0.0.1:5000/register/"
         data = {"username": username, "password": password}
         response = requests.post(url, json=data)
         return response.json()
+
+
+    def confirm_dialog(self):
+        msg = QDialog(self)
+        msg.setWindowTitle("Confirmation")
+        msg.setFont(QFont("Times New Roman", 12))
+        layout = QVBoxLayout()
+        message = QLabel("Do you want to register with these credentials?", msg)
+        layout.addWidget(message)
+
+        msg_buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No, msg)
+        msg_buttons.accepted.connect(msg.accept)
+        msg_buttons.rejected.connect(msg.reject)
+        check_url = "http://127.0.0.1:5000/check_user/"
+        check_data = {'username': self.username.text()}
+        check_response = requests.post(check_url, json=check_data)
+        input_missing = False
+
+        layout.addWidget(msg_buttons)
+        msg.setLayout(layout)
+        if check_response.json().get('exists'):
+            warning_message = QLabel("Username already exists!", msg)
+            layout.addWidget(warning_message)
+            input_missing = True
+        if self.username.text() == "":
+            warning_message = QLabel("Please enter a username!", msg)
+            layout.addWidget(warning_message)
+            input_missing = True
+        if self.password.text() == "":
+            warning_message = QLabel("Please enter a password!", msg)
+            layout.addWidget(warning_message)
+            input_missing = True
+        if input_missing:
+            self.username.clear()
+            self.password.clear()
+            msg.exec()
+            return
+
+
+
+        if msg.exec() == QDialog.DialogCode.Accepted:
+            username = self.username.text()
+            password = self.password.text()
+            self.send_registered_data(username, password)
+            self.close()
+        else:
+            self.username.clear()
+            self.password.clear()
+
+    def closeEvent(self, event):
+        self.close()
 
 
 
