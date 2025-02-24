@@ -1,10 +1,9 @@
-
-
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QDialog, QMainWindow, QLineEdit, QLabel, \
     QDialogButtonBox, QVBoxLayout, QHBoxLayout, QComboBox
 from PyQt6.QtGui import QIcon, QFont
 from HelpWindow import HelpWindow
+from User_ID_Window import login, register
 import sys
 
 
@@ -24,28 +23,41 @@ class MainWindow(QMainWindow):
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
+
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
+        self.help_button(bottom_layout)
+        self.undo_button(bottom_layout)
+
+        top_layout = QHBoxLayout()
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setSpacing(5)
+        self.register_button(top_layout)
+        self.login_button(top_layout)
+
+        top_layout_widget = QWidget()
+        top_layout_widget.setLayout(top_layout)
+        top_layout_widget.setContentsMargins(0, 0, 0, 0)
 
         self.expenses_total = 0
         self.expenses_total_label = QLabel(f"Total Expenses: ${self.expenses_total}", self)
         self.expenses_total_label.setStyleSheet(
             "font-size: 20px; font-weight: bold;"
         )
-        layout.addWidget(self.expenses_total_label)
-        layout.setAlignment(self.expenses_total_label, Qt.AlignmentFlag.AlignCenter)
+
+        layout.addWidget(top_layout_widget, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+        layout.addWidget(self.expenses_total_label, alignment=Qt.AlignmentFlag.AlignCenter)
+
 
 
         self.add_expense_button(layout)
-
         self.remove_expense_button(layout)
 
-        self.help_button(bottom_layout)
-
-        self.undo_button(bottom_layout)
+        layout.addLayout(bottom_layout)
 
         self.setLayout(layout)
-        layout.addLayout(bottom_layout)
 
 
     def add_expense_button(self, layout):
@@ -82,10 +94,25 @@ class MainWindow(QMainWindow):
         undo_button.setStyleSheet("background-color: blue; color: white;")
         undo_button.setFont(QFont("Times New Roman", 9))
         undo_button.setShortcut("Ctrl+Z")
+        # noinspection PyUnresolvedReferences
         undo_button.clicked.connect(self.undo)
         bottom_layout.addWidget(undo_button)
 
+    def login_button(self, top_layout):
+        login_button = QPushButton("Login", self)
+        login_button.setStyleSheet("background-color: blue; color: white;")
+        login_button.setFont(QFont("Times New Roman", 9))
+        top_layout.addWidget(login_button, alignment=Qt.AlignmentFlag.AlignRight)
+        # noinspection PyUnresolvedReferences
+        login_button.clicked.connect(self.login_clicked)
 
+    def register_button(self, top_layout):
+        register_button = QPushButton("Register", self)
+        register_button.setStyleSheet("background-color: blue; color: white;")
+        register_button.setFont(QFont("Times New Roman", 9))
+        top_layout.addWidget(register_button, alignment=Qt.AlignmentFlag.AlignRight)
+        # noinspection PyUnresolvedReferences
+        register_button.clicked.connect(self.register_clicked)
     def add_expense_clicked(self):
         self.w = AddExpenseWindow(self.expenses)
         # noinspection PyUnresolvedReferences
@@ -101,6 +128,13 @@ class MainWindow(QMainWindow):
     def help_clicked(self):
         self.h = HelpWindow()
         self.h.show()
+
+    def login_clicked(self):
+        self.l = login()
+        self.l.show()
+    def register_clicked(self):
+        self.r = register()
+        self.r.show()
 
     def update_expenses_total(self, expense_amount: float, expense_name: str):
         if expense_name in self.expenses:
@@ -276,12 +310,14 @@ class RemoveExpenseWindow(QWidget):
             try:
                 selected_expense = self.box.currentText()
                 if selected_expense == "All Expenses":
+                    # noinspection PyUnresolvedReferences
                     self.expense_removed.emit(sum(self.expenses.values()), "All Expenses")
                     print(sum(self.expenses.values(), 0))
                     self.expenses.clear()
                     self.box.clear()
                 selected_value = self.expenses.get(selected_expense)
                 if selected_value is not None:
+                    # noinspection PyUnresolvedReferences
                     self.expense_removed.emit(selected_value, selected_expense)
                     self.expenses.pop(selected_expense)
                     self.box.removeItem(self.box.currentIndex())
