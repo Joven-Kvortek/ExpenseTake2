@@ -3,9 +3,10 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QDialog, QDialogButtonBox
 import requests
 
-class login(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
+class login_window(QWidget):
+    def __init__(self, auth_manager, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.auth_manager = auth_manager
         self.setWindowTitle("User ID")
         self.layout = QVBoxLayout()
 
@@ -32,12 +33,6 @@ class login(QWidget):
         login_button.clicked.connect(self.login_clicked)
         self.layout.addWidget(login_button)
 
-    def send_login_data(self, username, password):
-        url = "http://127.0.0.1:5000/login/"
-        data = {"username": username, "password": password}
-        response = requests.post(url, json=data)
-        return response.json()
-
     def login_clicked(self):
         url = "http://127.0.0.1:5000/login/"
         data = {"username": self.username.text(), "password": self.password.text()}
@@ -46,7 +41,9 @@ class login(QWidget):
         if response.json().get('wrong_password'):
             self.wrong_password()
         elif response.json().get('exists'):
+            self.auth_manager.username = self.username.text()
             self.login_successful()
+            self.auth_manager.load_data(self.username.text())
         else:
             self.login_failed()
 
@@ -79,11 +76,12 @@ class login(QWidget):
         self.password.clear()
 
 
-
-
-class register(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
+class register_window(QWidget):
+    def __init__(self, auth_manager, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.username = None
+        self.password = None
+        self.auth_manager = auth_manager
         self.setWindowTitle("Register")
         self.layout = QVBoxLayout()
 

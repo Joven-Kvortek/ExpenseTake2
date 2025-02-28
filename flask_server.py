@@ -29,12 +29,10 @@ def register():
 def check_user():
     data = request.json
     username = data.get('username')
-    print(username)
     try:
         cursor = mysql.connection.cursor()
         cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
         existing_user = cursor.fetchone()
-        print(existing_user)
         if existing_user:
             return jsonify({'exists': True}), 200
         return jsonify({'exists': False}), 200
@@ -59,6 +57,75 @@ def login():
             return jsonify({'exists': True}), 200
         return jsonify({'exists': False}), 401
     except Exception as e:
+        return jsonify({'message': 'Database error'}), 500
+
+@app.route('/save_expenses/', methods=['GET', 'POST'])
+def save_expenses():
+    data = request.json
+    username = data.get('username')
+    expenses = data.get('expenses')
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+        user = cursor.fetchone()
+
+        if not user:
+            return jsonify({'message': 'User not found'}), 404
+        user_id = user[0]
+
+        for expense in expenses:
+            expense_name = expense['name']
+            expense_amount = expense['amount']
+            cursor.execute("SELECT * FROM expenses WHERE user_id = %s AND expense = %s AND amount = %s", (user_id, expense_name, expense_amount))
+            existing_expense = cursor.fetchone()
+
+            if not existing_expense:
+                cursor.execute("INSERT INTO expenses (user_id, expense, amount) VALUES (%s, %s, %s)", (user_id, expense_name, expense_amount))
+
+        mysql.connection.commit()
+        return jsonify({'message': 'Expenses saved successfully'}), 200
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({'message': 'Database error'}), 500
+
+@app.route('/get_expenses/', methods=['GET', 'POST'])
+def get_expenses():
+    data = request.json
+    username = data.get('username')
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+        user = cursor.fetchone()
+        if not user:
+            return jsonify({'message': 'User not found'}), 404
+        user_id = user[0]
+        cursor.execute("SELECT expense, amount FROM expenses WHERE user_id = %s", (user_id,))
+        expenses = cursor.fetchall()
+        expense_list = [{"name": expense[0], "amount": expense[1]} for expense in expenses]
+        return jsonify({'expenses': expense_list}), 200
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({'message': 'Database error'}), 500
+@app.route('/remove_expense/', methods=['GET', 'POST'])
+def remove_expense():
+    data = request.json
+    username = data.get('username')
+    expense_name = data.get('expense_name')
+    expense_amount = data.get('expense_amount')
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+        user = cursor.fetchone()
+        if not user:
+            return jsonify({'message': 'User not found'}), 404
+        user_id = user[0]
+
+        cursor.execute("DELETE FROM expenses WHERE user_id = %s AND expense = %s AND amount = %s", (user_id, expense_name, expense_amount))
+        mysql.connection.commit()
+
+        return jsonify({'message': 'Expense removed successfully'}), 200
+    except Exception as e:
+        print(f"Error: {e}")
         return jsonify({'message': 'Database error'}), 500
 
 
