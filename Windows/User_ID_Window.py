@@ -6,6 +6,8 @@ import requests
 class login_window(QWidget):
     def __init__(self, auth_manager, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.password = None
+        self.username = None
         self.auth_manager = auth_manager
         self.setWindowTitle("User ID")
         self.layout = QVBoxLayout()

@@ -5,16 +5,19 @@ from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QDialog, QMainWi
 from PyQt6.QtGui import QIcon, QFont
 from HelpWindow import HelpWindow
 from User_ID_Window import login_window, register_window
+from Budget_Window import budget_window
+
 import sys
 
-
-
+from View_All_Expenses_Window import view_all_expenses_window
 
 
 class MainWindow(QMainWindow):
     def __init__(self, auth_manager, undo_manager, total_expenses_manager):
         super().__init__()
 
+        self.view_all = None
+        self.budget_window = None
         self.help_window = None
         self.add_expense_window = None
         self.remove_expense_window = None
@@ -32,6 +35,9 @@ class MainWindow(QMainWindow):
 
         self.undo = undo_manager
         self.undo.parent = self
+
+        self.budget = budget_window
+        self.budget.parent = self
 
         self.setup_ui()
     def setup_ui(self):
@@ -75,39 +81,11 @@ class MainWindow(QMainWindow):
 
         self.add_expense_button(layout)
         self.remove_expense_button(layout)
+        self.budget_button(layout)
+        self.view_all_expenses_button(layout)
 
 
         layout.addLayout(bottom_layout)
-    def closeEvent(self, event):
-        if self.close_confirmation(event):
-            event.accept()
-        else:
-            event.ignore()
-
-    def close_confirmation(self, event):
-        msg = QDialog(self)
-        msg.setWindowTitle("Confirmation")
-        msg.setFont(QFont("Times New Roman", 12))
-        layout = QVBoxLayout()
-        message = QLabel("Would you like to save your changes?", msg)
-        layout.addWidget(message)
-
-        msg_buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No, msg)
-        # noinspection PyUnresolvedReferences
-        msg_buttons.accepted.connect(msg.accept)
-        # noinspection PyUnresolvedReferences
-        msg_buttons.rejected.connect(msg.reject)
-        layout.addWidget(msg_buttons)
-        msg.setLayout(layout)
-        if msg.exec() == QDialog.DialogCode.Accepted:
-            url = "http://127.0.0.1:5000/save_expenses/"
-            data = self.expenses
-            username = self.auth.login_window.username.text()
-            requests.post(url, json={"username": username, "expenses": data})
-            print(data)
-            return True
-        else:
-            self.close()
 
     def add_expense_button(self, layout):
         add_expense_button = QPushButton("Add Expense", self)
@@ -129,6 +107,16 @@ class MainWindow(QMainWindow):
         # noinspection PyUnresolvedReferences
         remove_expense_button.clicked.connect(self.remove_expense_clicked)
 
+    def budget_button(self, layout):
+        budget_button = QPushButton("Manage Budgets", self)
+        budget_button.setStyleSheet("background-color: black; color: white;")
+        budget_button.setFont(QFont("Times New Roman", 9))
+        budget_button.setMaximumSize(300, 150)
+        budget_button.setShortcut("Ctrl+B")
+        layout.addWidget(budget_button)
+        # noinspection PyUnresolvedReferences
+        budget_button.clicked.connect(self.budget_clicked)
+
     def help_button(self, bottom_layout):
         help_button = QPushButton("Help", self)
         help_button.setStyleSheet("background-color: blue; color: white;")
@@ -137,7 +125,25 @@ class MainWindow(QMainWindow):
         bottom_layout.addWidget(help_button)
         # noinspection PyUnresolvedReferences
         help_button.clicked.connect(self.help_clicked)
+
+    def view_all_expenses_button(self, layout):
+        view_all_expenses_button = QPushButton("View All Expenses", self)
+        view_all_expenses_button.setStyleSheet("background-color: black; color: white;")
+        view_all_expenses_button.setFont(QFont("Times New Roman", 9))
+        view_all_expenses_button.setMaximumSize(300, 150)
+        view_all_expenses_button.setShortcut("Ctrl+V")
+        # noinspection PyUnresolvedReferences
+        view_all_expenses_button.clicked.connect(self.view_all_expenses_clicked)
+        layout.addWidget(view_all_expenses_button)
+
     def add_expense_clicked(self):
+        if not self.auth.username:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Icon.Critical)
+            msg.setWindowTitle("Error")
+            msg.setText("Please login first!")
+            msg.exec()
+            return
         self.add_expense_window = AddExpenseWindow(self.expenses)
         # noinspection PyUnresolvedReferences
         self.add_expense_window.expense_added.connect(self.total.update_expenses_total)
@@ -167,6 +173,46 @@ class MainWindow(QMainWindow):
             msg.setText("Must be logged in to remove expenses!")
             msg.exec()
             return
+
+    def budget_clicked(self):
+        try:
+            if not self.auth.username:
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Icon.Critical)
+                msg.setWindowTitle("Error")
+                msg.setText("Please login first!")
+                msg.exec()
+                return
+        except Exception as e:
+            print(f"Error: {e}")
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Icon.Critical)
+            msg.setWindowTitle("Error")
+            msg.setText("Must be logged in to view budgets!")
+            return
+
+        self.budget_window = budget_window()
+        self.budget_window.show()
+
+    def view_all_expenses_clicked(self):
+        try:
+            if not self.auth.username:
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Icon.Critical)
+                msg.setWindowTitle("Error")
+                msg.setText("Please login first!")
+                msg.exec()
+                return
+        except Exception as e:
+            print(f"Error: {e}")
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Icon.Critical)
+            msg.setWindowTitle("Error")
+            msg.setText("Must be logged in to view budgets!")
+            return
+
+        self.view_all = view_all_expenses_window(username = self.auth.login_window.username.text())
+        self.view_all.show()
 
     def help_clicked(self):
         self.help_window = HelpWindow()
@@ -257,7 +303,7 @@ class AuthManager:
 
     def load_data(self, username):
         try:
-            response = requests.get("http://127.0.0.1:5000/get_expenses/", json={"username": username})
+            response = requests.get("http://127.0.0.1:5001/get_expenses/", json={"username": username})
             if response.status_code == 200:
                 data = response.json()
                 expenses = data.get("expenses", [])
@@ -290,6 +336,7 @@ class AddExpenseWindow(QWidget):
     expense_added = pyqtSignal(float,str)
     def __init__(self, dict, parent=None):
         super().__init__(parent)
+        self.auth = auth_manager
         self.setWindowTitle("Add Expense")
         self.setGeometry(50, 50, 500, 500)
         layout = QVBoxLayout()
@@ -318,13 +365,8 @@ class AddExpenseWindow(QWidget):
     def confirm_clicked(self):
         self.confirmation_dialog_amount()
         try:
-            expense_amount = float(self.expense_cost.text())
-            expense_name = str(self.expense_name.text())
-            if expense_name in self.expenses:
+            if self.expense_name in self.expenses:
                 return
-            else:
-                # noinspection PyUnresolvedReferences
-                self.expense_added.emit(expense_amount, expense_name)
 
         except ValueError:
             pass
@@ -350,14 +392,31 @@ class AddExpenseWindow(QWidget):
         if self.expense_name.text() == "":
             warning_message = QLabel("Please enter an expense name!", msg)
             layout.addWidget(warning_message)
+
         if self.expense_cost.text() == "":
             warning_message = QLabel("Please enter an expense cost!", msg)
             layout.addWidget(warning_message)
-        if self.expense_name.text() in self.expenses:
+
+        if self.expense_name.text() in [expense["name"] for expense in self.expenses]:
             warning_message = QLabel("Expense already exists!", msg)
             layout.addWidget(warning_message)
 
+
         if msg.exec() == QDialog.DialogCode.Accepted:
+            if self.expense_cost.text() == "":
+                return
+            if self.expense_name.text() == "":
+                return
+            if self.expense_name.text() in [expense["name"] for expense in self.expenses]:
+                return
+            expense_amount = float(self.expense_cost.text())
+            expense_name = str(self.expense_name.text())
+            self.expense_added.emit(expense_amount, expense_name)
+            url = "http://127.0.0.1:5001/save_expenses/"
+            data = self.expenses
+            username = self.auth.login_window.username.text()
+            requests.post(url, json={"username": username, "expenses": data})
+            print(data)
             self.close()
         else:
             self.expense_name.clear()
@@ -407,33 +466,48 @@ class RemoveExpenseWindow(QWidget):
             print("No expense selected!")
             return
 
-        if self.confirmation_dialog(selected_expense_name):
-            try:
+        try:
                 if selected_expense_name == "All Expenses":
-                    total_cost = sum([float(expense["amount"]) for expense in self.expenses])
-                    # noinspection PyUnresolvedReferences
-                    self.expense_removed.emit(total_cost, "All Expenses")
-                    self.expenses.clear()
-                    self.box.clear()
-                else:
-                    selected_expense = next((expense for expense in self.expenses if expense["name"] == selected_expense_name), None)
-                    if selected_expense is not None:
+                    if self.confirmation_dialog("All Expenses"):
+                        selected_expense = "All expenses"
                         try:
-                            request_data = {"username": self.username, "expense_name": selected_expense_name, "expense_amount": selected_expense["amount"]}
+                            request_data = {"username": self.username, "expense_name": selected_expense}
                             print(f"Request data: {request_data}")
                             response = requests.post("http://127.0.0.1:5000/remove_expense/", json=request_data)
                             if response.status_code == 200:
-                                print("Expense removed successfully!")
+                                print("All expenses removed successfully!")
+                                selected_expense = sum([float(expense["amount"]) for expense in self.expenses])
                                 # noinspection PyUnresolvedReferences
-                                self.expense_removed.emit(float(selected_expense["amount"]), selected_expense_name)
-                                self.expenses.remove(selected_expense)
-                                self.box.removeItem(self.box.currentIndex())
+                                self.expense_removed.emit(selected_expense, "All Expenses")
+                                self.expenses.clear()
+                                self.box.clear()
                             else:
                                 print(f"Error: {response.status_code}")
                         except Exception as e:
                             print(f"Error with backend: {e}")
+
+                    else:
+                        print("Canceled removal of all expenses")
+                else:
+                    if self.confirmation_dialog(selected_expense_name):
+                        selected_expense = next((expense for expense in self.expenses if expense["name"] == selected_expense_name), None)
+                        if selected_expense is not None:
+                            try:
+                                request_data = {"username": self.username, "expense_name": selected_expense_name, "expense_amount": selected_expense["amount"]}
+                                print(f"Request data: {request_data}")
+                                response = requests.post("http://127.0.0.1:5000/remove_expense/", json=request_data)
+                                if response.status_code == 200:
+                                    print("Expense removed successfully!")
+                                    # noinspection PyUnresolvedReferences
+                                    self.expense_removed.emit(float(selected_expense["amount"]), selected_expense_name)
+                                    self.expenses.remove(selected_expense)
+                                    self.box.removeItem(self.box.currentIndex())
+                                else:
+                                    print(f"Error: {response.status_code}")
+                            except Exception as e:
+                                print(f"Error with backend: {e}")
                 self.close()
-            except Exception as e:
+        except Exception as e:
                 print(f"Error: {e}")
 
     def confirmation_dialog(self, selected_expense_name):
@@ -449,20 +523,18 @@ class RemoveExpenseWindow(QWidget):
         # noinspection PyUnresolvedReferences
         msg_buttons.rejected.connect(msg.reject)
         msg.setLayout(layout)
-        print(selected_expense_name)
-        if self.box.currentText() == "":
-            print("No expense selected!")
+        if not selected_expense_name:
             warning_message = QLabel("No expense selected!", msg)
-            layout.addWidget(warning_message)
-        elif self.box.currentText() == "All Expenses":
+        elif selected_expense_name == "All Expenses":
             warning_message = QLabel("Are you sure you want to remove all expenses?", msg)
-            warning_message.setWordWrap(True)
-            layout.addWidget(warning_message)
-        elif self.box.currentText() != "All Expenses" and selected_expense_name != "":
-            warning_message = QLabel(f"Remove expense: {self.box.currentText()}?", msg)
-            layout.addWidget(warning_message)
+        else:
+            warning_message = QLabel(f"Remove expense: {selected_expense_name}?", msg)
 
-            return msg.exec() == QDialog.DialogCode.Accepted
+        warning_message.setWordWrap(True)
+        layout.addWidget(warning_message)
+        msg.setLayout(layout)
+
+        return msg.exec() == QDialog.DialogCode.Accepted
 
 
 
@@ -479,6 +551,7 @@ app = QApplication([])
 auth_manager = AuthManager(None, "user1", "password123")
 undo_manager = UndoManager(None)
 total_expenses = total_expenses_manager(None)
+
 
 window = MainWindow(auth_manager, undo_manager, total_expenses)
 window.show()
